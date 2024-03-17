@@ -9,10 +9,10 @@ void func2(void * arg)
     uthread_sleep(*(schedule_t *)arg,3000);
     puts("222");
     puts("222");
-    for(int i = 0;true;i++){       
+    // for(int i = 0;true;i++){       
         uthread_sleep(*(schedule_t *)arg,300);
         // printf("i:%d\n",i);
-    }
+    // }
 }
  
 void func3(void *arg)
@@ -36,13 +36,13 @@ void testsleep(void* arg){
         time_point now1 = std::chrono::high_resolution_clock::now();
         uthread_sleep(s,10);
         time_point now2 = std::chrono::high_resolution_clock::now();
-        switch(s.running_thread){
+        switch(s.running_thread->tid){
             case 0:
             case 99:
             case 999:
             case 9999:
             int count = std::chrono::duration_cast<std::chrono::microseconds>(now2 - now1).count();
-            printf("d:%d tid:%d ssize:%d\n",count,s.running_thread,sleepQueue.size());
+            // printf("d:%d tid:%d ssize:%d\n",count,s.running_thread,sleepQueue.size());
             break;
         }        
     }
@@ -52,8 +52,8 @@ void schedule_test()
 {
     schedule_t s;
  
-    // int id1 = uthread_create(s,func3,&s);
-    // int id2 = uthread_create(s,func2,&s);
+    int id1 = uthread_create(s,func3,&s);
+    int id2 = uthread_create(s,func2,&s);
     for(int i = 0;i<1000;i++){       
         // uthread_sleep(*(schedule_t *)arg,500);
         // printf("i:%d\n",i);
