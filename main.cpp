@@ -24,7 +24,7 @@ void func3(void *arg)
     puts("3333");
     for(int i = 0;true;i++){       
         uthread_sleep(*(schedule_t *)arg,500);
-        // printf("i:%d\n",i);
+        printf("i:%d\n",i);
     }
  
 }
@@ -42,7 +42,7 @@ void testsleep(void* arg){
             case 999:
             case 9999:
             int count = std::chrono::duration_cast<std::chrono::microseconds>(now2 - now1).count();
-            // printf("d:%d tid:%d ssize:%d\n",count,s.running_thread,sleepQueue.size());
+            printf("d:%d tid:%d ssize:%d\n",count,s.running_thread,sleepQueue.size());
             break;
         }        
     }
@@ -59,15 +59,7 @@ void schedule_test()
         // printf("i:%d\n",i);
         uthread_create(s,testsleep,&s);
     } 
-    while(!schedule_finished(s)){
-        int waitms = uthread_check_timer(s);
-        if(waitms > 0 && s.runnable_queue.empty()){
-            std::this_thread::sleep_for(std::chrono::milliseconds(waitms));
-        }
-        // uthread_resume(s,id1);
-        // uthread_resume(s,id2);
-        uthread_check_runnable(s);
-    }
+    uthread_main(s);
     puts("main over");
  
 }

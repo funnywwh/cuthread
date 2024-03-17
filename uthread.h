@@ -161,3 +161,13 @@ void uthread_check_runnable(schedule_t &schedule){
         // printf("uthread_check_runnable t:%d %d\n",t.tid,std::chrono::duration_cast<std::chrono::microseconds>(now2 - now1).count());
     }
 }
+
+void uthread_main(schedule_t& s){
+    while(true){
+        int waitms = uthread_check_timer(s);
+        if(waitms > 0 && s.runnable_queue.empty()){
+            std::this_thread::sleep_for(std::chrono::milliseconds(waitms));
+        }
+        uthread_check_runnable(s);
+    }
+}
