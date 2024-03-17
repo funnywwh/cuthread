@@ -49,7 +49,7 @@ void testsleep(void* arg){
             case 999:
             case 9999:
             int count = std::chrono::duration_cast<std::chrono::microseconds>(now2 - now1).count();
-            printf("d:%d tid:%d ssize:%d\n",count,s.running_thread,s.sleep_queue.size());
+            // printf("d:%d tid:%d ssize:%d\n",count,s.running_thread,s.sleep_queue.size());
             break;
         }        
     }
@@ -101,37 +101,37 @@ void http_loop(void* arg){
             }
         }
         // delete buf;
-        const char* contextType = "context-type: text/plain\r\n";
-        const char* conntionClose = "connection: close\r\n";
-        // printf("sending:%s\n",contextType);
-        int ret = u_send(c.fd,contextType,strlen(contextType),0);
-        if(ret <= 0){
-            printf("send ret:%d\n",ret);
-            break;
-        }
-        // printf("sending:%s\n",conntionClose);
-        ret = u_send(c.fd,conntionClose,strlen(conntionClose),0);
-        if(ret <= 0){
-            printf("send ret:%d\n",ret);
-            break;
-        }
-        const char* contentLength = "content-length:12\r\n";
-        // printf("sending:%s\n",contentLength);
-        ret = u_send(c.fd,contentLength,strlen(contentLength),0);
-        if(ret <= 0){
-            printf("send ret:%d\n",ret);
-            break;
-        }
-        const char* bodyBegin = "\r\n";
-        // printf("sending:%s\n","body begin");
-        ret = u_send(c.fd,bodyBegin,strlen(bodyBegin),0);
-        if(ret <= 0){
-            printf("send ret:%d\n",ret);
-            break;
-        }
+        // const char* contextType = "context-type: text/plain\r\n";
+        // const char* conntionClose = "connection: close\r\n";
+        // // printf("sending:%s\n",contextType);
+        // int ret = u_send(c.fd,contextType,strlen(contextType),0);
+        // if(ret <= 0){
+        //     printf("send ret:%d\n",ret);
+        //     break;
+        // }
+        // // printf("sending:%s\n",conntionClose);
+        // ret = u_send(c.fd,conntionClose,strlen(conntionClose),0);
+        // if(ret <= 0){
+        //     printf("send ret:%d\n",ret);
+        //     break;
+        // }
+        // const char* contentLength = "content-length:12\r\n";
+        // // printf("sending:%s\n",contentLength);
+        // ret = u_send(c.fd,contentLength,strlen(contentLength),0);
+        // if(ret <= 0){
+        //     printf("send ret:%d\n",ret);
+        //     break;
+        // }
+        // const char* bodyBegin = "\r\n";
+        // // printf("sending:%s\n","body begin");
+        // ret = u_send(c.fd,bodyBegin,strlen(bodyBegin),0);
+        // if(ret <= 0){
+        //     printf("send ret:%d\n",ret);
+        //     break;
+        // }
         // printf("sending:%s\n","body");
-        const char* body = "hello world!";
-        ret = u_send(c.fd,body,strlen(body),0);
+        const char* body = "context-type: text/plain\r\nconnection: close\r\ncontent-length:21\r\n\r\nmessage from server!\n";
+        int ret = u_send(c.fd,body,strlen(body),0);
         if(ret <= 0){
             printf("send ret:%d\n",ret);
             break;
@@ -145,15 +145,26 @@ void http_loop(void* arg){
 void socket_server(void* arg){
     schedule_t* s = (schedule_t*)arg;
     int sfd = u_socket(AF_INET, SOCK_STREAM, 0);
+    if(sfd <= 0){
+        printf("socket_server u_socket ret:%d\n",sfd);
+        return ;
+    }
     epoll_event evt;
     evt.data.fd = sfd;
     struct sockaddr_in local, remote;
     local.sin_family = AF_INET;
     local.sin_port = htons(8000);
     local.sin_addr.s_addr = INADDR_ANY;
-    bind(sfd, (struct sockaddr *) &local, sizeof(struct sockaddr_in));
-    listen(sfd, 128);
-
+    int ret = bind(sfd, (struct sockaddr *) &local, sizeof(struct sockaddr_in));
+    if(ret < 0){
+        printf("socket_server bind ret:%d\n",ret);
+        return ;
+    }
+    ret = listen(sfd, 10);
+    if(ret < 0){
+        printf("socket_server listen ret:%d\n",ret);
+        return ;
+    }
     while(true){
         socklen_t len = sizeof(struct sockaddr_in);
         int cfd = u_accept(sfd,(struct sockaddr *)&remote,&len);
@@ -165,6 +176,9 @@ void socket_server(void* arg){
             // uthread_create(*s,echo_loop,c);
             uthread_create(*s,http_loop,c);
             // http_loop(c);
+        }else{
+            printf("u_accept ret:%d\n",cfd);
+            return;
         }
     }
 }

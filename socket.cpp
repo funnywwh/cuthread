@@ -1,9 +1,7 @@
 #include "uthread.h"
 #include <netinet/tcp.h>
-extern "C" {
 #include <sys/epoll.h>
-// #include <sys/poll.h>
-}
+
 static schedule_t* schedule = 0;
 void socket_set_schedule(schedule_t* s){
     schedule = s;
@@ -41,7 +39,7 @@ int u_socket(int domain, int type, int protocol){
         return -1;
     }
     int reuse = 1;
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *) &reuse, sizeof(reuse));
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR|SO_REUSEPORT, (char *) &reuse, sizeof(reuse));
     return fd;
 }
 
@@ -144,12 +142,13 @@ int u_connect(int fd, struct sockaddr *name, socklen_t len){
 }
 
 
-const int NTY_CO_MAX_EVENTS = 10;
-
-
 void socket_check(){
-    epoll_event eventlist[NTY_CO_MAX_EVENTS];
-    int evts = epoll_wait(schedule->efd,eventlist,NTY_CO_MAX_EVENTS,0);
+    epoll_event eventlist[10];
+    int waitms = 10;
+    if(schedule->sleep_queue.size() > 0 || schedule->runnable_queue.size() > 0 ){
+        waitms = 0;
+    }
+    int evts = epoll_wait(schedule->efd,eventlist,sizeof(eventlist)/sizeof(epoll_event),waitms);
     // printf("epoll wait evts:%d\n",evts);
     for(int i = 0;i<evts;i++){
         epoll_event* evt = &eventlist[i];

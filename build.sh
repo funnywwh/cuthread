@@ -1,1 +1,1 @@
-g++ -o uthread main.cpp socket.cpp uthread.cpp
+g++ -O3 -o uthread main.cpp socket.cpp uthread.cpp
