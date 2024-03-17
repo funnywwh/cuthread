@@ -3,9 +3,10 @@
 #include <stdio.h>
 #include <queue>
 #include <chrono>
+#include <thread>
 typedef void (*Fun)(void *arg);
 
-const int DEFAULT_STACK_SZIE = 1024*8;
+const int DEFAULT_STACK_SZIE = 1024;
 enum ThreadState{
     SUSPEND,
     RUNNABLE,
@@ -28,52 +29,30 @@ typedef struct schedule_t
     ucontext_t main;
     int running_thread;
     Thread_vector threads;
-    Thread_vector runnable_queue;
+    std::deque<uthread_t> runnable_queue;
     Thread_vector suspend_queue;
     schedule_t():running_thread(-1){}
-
-    
-    void remove_runnable(int tid){
-        if(runnable_queue.empty()){
-            return;
-        }
-        auto end = runnable_queue.end();        
-        for (Thread_vector::iterator i = runnable_queue.begin(); i != end; i++) {
-            uthread_t t = *i;    
-            if(t.tid == tid){
-                runnable_queue.erase(i);
-                printf("erase t:%d size:%d\n",tid,runnable_queue.size());
-                break;
-            }        
-        }
-    }
-    void remove_suspend(int tid){
-        if(suspend_queue.empty()){
-            return;
-        }
-        auto end = suspend_queue.end();        
-        for (Thread_vector::iterator i = suspend_queue.begin(); i != end; i++) {
-            uthread_t t = *i;    
-            if(t.tid == tid){
-                printf("erase t:%d\n",tid);
-                suspend_queue.erase(i);
-                break;
-            }        
-        }
-    }
 }schedule_t;
+
+void uthread_body(schedule_t* s){
+    uthread_t& thread = s->threads[s->running_thread];
+    thread.func(thread.arg);
+    printf("co:%d exited\n",s->running_thread);
+    s->threads.erase(s->threads.begin() + s->running_thread);
+    s->running_thread = -1;
+}
 
 
 int  uthread_create(schedule_t &schedule,Fun func,void *arg){
     int id = schedule.threads.size();
     schedule.threads.push_back(uthread_t{});
     uthread_t& thread = schedule.threads[id];
-    printf("id:%d\n",id);
     thread.tid = id;
     thread.arg = arg;
     thread.func = func;    
     thread.state = RUNNABLE;    
     schedule.runnable_queue.push_back(thread);
+    printf("id:%d\n",id);
     return id;
 }
 void uthread_yield(schedule_t &schedule)
@@ -87,13 +66,6 @@ void uthread_yield(schedule_t &schedule)
     }
 }
 
-void uthread_body(schedule_t* s){
-    uthread_t& thread = s->threads[s->running_thread];
-    thread.func(thread.arg);
-    printf("co:%d exited\n",s->running_thread);
-    s->threads.erase(s->threads.begin() + s->running_thread);
-    s->running_thread = -1;
-}
 void uthread_resume(schedule_t &schedule , size_t id)
 {
     if(id >= schedule.threads.size()){
@@ -115,16 +87,12 @@ void uthread_resume(schedule_t &schedule , size_t id)
             schedule.running_thread = id;
  
             makecontext(&(t->ctx),(void (*)(void))(uthread_body),1,&schedule);
-            schedule.remove_runnable(id);
             swapcontext(&(schedule.main),&(t->ctx));
             break;
         case SUSPEND:            
             t->state = RUNNING;        
             schedule.running_thread = id;
-            schedule.remove_suspend(id);
-            schedule.remove_runnable(id);
             swapcontext(&(schedule.main),&(t->ctx));
-            // printf("uthread_resume co:%d exited\n",id);
             break;
         default: ;
     }
@@ -162,34 +130,42 @@ void uthread_sleep(schedule_t &schedule,int timeoutms){
 
     sleepQueue.push(t);
     uthread_yield(schedule);
-    schedule.remove_runnable(tid);
 }
 
 int uthread_check_timer(schedule_t &schedule){
     // printf("uthread_check_timer\n");
-    if(sleepQueue.empty()){
-        return 0;
+    while(true){
+        if(sleepQueue.empty()){
+            return 0;
+        }
+        time_point now = std::chrono::high_resolution_clock::now();
+        timer smallTime = sleepQueue.top();
+        auto diff = smallTime.timeout - now;
+        int ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
+        if(ms > 0){  
+            // printf("sleep %d diff:%d size:%d\n",smallTime.tid,std::chrono::duration_cast<std::chrono::milliseconds>(diff).count(),schedule.runnable_queue.size());      
+            return ms;
+        }
+        // printf("will wakeup %d\n",smallTime.tid);
+        sleepQueue.pop();
+        now = std::chrono::high_resolution_clock::now();
+        uthread_resume(schedule,smallTime.tid);
+        time_point now2 = std::chrono::high_resolution_clock::now();
+        // printf("switch:%d tid:%d\n",std::chrono::duration_cast<std::chrono::microseconds>(now2 - now).count(),smallTime.tid);
     }
-    time_point now = std::chrono::high_resolution_clock::now();
-    timer smallTime = sleepQueue.top();
-    auto diff = smallTime.timeout - now;
-    int ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
-    if(ms > 0){  
-        // printf("sleep %d diff:%d size:%d\n",smallTime.tid,std::chrono::duration_cast<std::chrono::milliseconds>(diff).count(),schedule.runnable_queue.size());      
-        return ms;
-    }
-    // printf("will wakeup %d\n",smallTime.tid);
-    sleepQueue.pop();
-    uthread_resume(schedule,smallTime.tid);
-    // printf("wake up:%d\n",smallTime.tid);
     return 0;
 }
 
 void uthread_check_runnable(schedule_t &schedule){
-    if(schedule.runnable_queue.empty()){
-        return;
+    while(true){
+        if(schedule.runnable_queue.empty()){
+            return;
+        }
+        uthread_t t = schedule.runnable_queue.front();
+        schedule.runnable_queue.erase(schedule.runnable_queue.begin());
+        time_point now1 = std::chrono::high_resolution_clock::now();
+        uthread_resume(schedule,t.tid);
+        time_point now2 = std::chrono::high_resolution_clock::now();
+        // printf("uthread_check_runnable t:%d %d\n",t.tid,std::chrono::duration_cast<std::chrono::microseconds>(now2 - now1).count());
     }
-    uthread_t t = schedule.runnable_queue.front();
-    printf("uthread_check_runnable t:%d\n",t.tid);
-    uthread_resume(schedule,t.tid);
 }
