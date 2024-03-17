@@ -59,7 +59,7 @@ void schedule_test()
         // printf("i:%d\n",i);
         uthread_create(s,testsleep,&s);
     } 
-    uthread_main(s);
+    uthread_loop(s);
     puts("main over");
  
 }

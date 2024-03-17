@@ -162,7 +162,7 @@ void uthread_check_runnable(schedule_t &schedule){
     }
 }
 
-void uthread_main(schedule_t& s){
+void uthread_loop(schedule_t& s){
     while(true){
         int waitms = uthread_check_timer(s);
         if(waitms > 0 && s.runnable_queue.empty()){
