@@ -11,7 +11,20 @@ struct socket_data{
     int fd;
     uthread_t* thread;
 };
+
+class Time{
+public:
+    time_point start;
+    Time(){
+        start =  std::chrono::high_resolution_clock::now();
+    }
+    ~Time(){
+        time_point stop =  std::chrono::high_resolution_clock::now();
+        printf("use :%d\n",std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count());
+    }
+};
 int u_epoll_inner(epoll_event& evt){
+    // Time t;
     // epoll_event evt;
     // evt.events = POLLOUT | POLLIN | POLLERR | POLLHUP;
     socket_data data;
@@ -48,7 +61,7 @@ int u_accept(int fd, struct sockaddr *addr, socklen_t *len){
     int sockfd;
     while (1) {
         epoll_event evt;
-        evt.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET;
+        evt.events = EPOLLIN | EPOLLERR | EPOLLHUP ;
         evt.data.fd = fd;
         u_epoll_inner(evt);
         // printf("accept new client\n");
@@ -82,7 +95,7 @@ int u_accept(int fd, struct sockaddr *addr, socklen_t *len){
 
 ssize_t u_recv(int fd, void *buf, size_t len, int flags){
     epoll_event evt;
-    evt.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET;
+    evt.events = EPOLLIN | EPOLLERR | EPOLLHUP ;
     evt.data.fd = fd;
     u_epoll_inner(evt);
     //resume
@@ -100,7 +113,7 @@ ssize_t u_send(int fd, const void *buf, size_t len, int flags){
     if (ret > 0) sent += ret;
     while (sent < len) {
         epoll_event evt;
-        evt.events = EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLET;
+        evt.events = EPOLLOUT | EPOLLERR | EPOLLHUP ;
         evt.data.fd = fd;
         u_epoll_inner(evt);
         // printf("[[will send tid:%d\n",schedule->running_thread->tid);
@@ -125,7 +138,7 @@ int u_connect(int fd, struct sockaddr *name, socklen_t len){
     while (1) {
         //加入epoll，然后yield
         epoll_event evt;
-        evt.events = EPOLLOUT| EPOLLERR | EPOLLHUP | EPOLLET;
+        evt.events = EPOLLOUT| EPOLLERR | EPOLLHUP ;
         evt.data.fd = fd;
         u_epoll_inner(evt);
         //resume
@@ -143,7 +156,7 @@ int u_connect(int fd, struct sockaddr *name, socklen_t len){
 
 
 void socket_check(){
-    epoll_event eventlist[10];
+    epoll_event eventlist[1];
     int waitms = 10;
     if(schedule->sleep_queue.size() > 0 || schedule->runnable_queue.size() > 0 ){
         waitms = 0;

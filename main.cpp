@@ -81,13 +81,14 @@ void echo_loop(void* arg){
     u_close(c.fd);
 }
 
+char body[1024*1024*10];
 void http_loop(void* arg){
     client* pclient = (client*)arg;
     client c = *pclient;
     delete(pclient);
     while(true){
         
-        char buf[100];
+        char buf[1024];
         while(true){
             int ret = u_recv(c.fd,buf,99,0);
             if(ret <= 0 ){
@@ -130,18 +131,42 @@ void http_loop(void* arg){
         //     break;
         // }
         // printf("sending:%s\n","body");
-        const char* body = "context-type: text/plain\r\nconnection: close\r\ncontent-length:21\r\n\r\nmessage from server!\n";
-        int ret = u_send(c.fd,body,strlen(body),0);
+        const char* header = "HTTP/1.1 200 OK\r\nContext-type: text/plain\r\nConnection: keep-alive\r\nContent-length:21\r\n\r\n";
+        int ret = u_send(c.fd,header,strlen(header),0);
         if(ret <= 0){
             printf("send ret:%d\n",ret);
             break;
         }
+        // char* body = new char[1024*100];
+        ret = u_send(c.fd,body,21,0);
+        if(ret <= 0){
+            printf("send ret:%d\n",ret);
+            break;
+        }
+        // delete []body;
         // u_close(c.fd);
-        break;
+        // break;
     }
     // printf("http loop exit tid:%d\n",c.s->running_thread->tid);
+    // u_close(c.fd);
+}
+
+void read_loop(void* arg){
+    client* pclient = (client*)arg;
+    client c = *pclient;
+    delete(pclient);
+    const int size = 1024*100;
+    char* buf = new char[size];
+    while(true){
+        int ret = u_recv(c.fd,buf,size,0);
+        if(ret <= 0){
+            break;
+        }
+    }
+    delete[] buf;
     u_close(c.fd);
 }
+
 void socket_server(void* arg){
     schedule_t* s = (schedule_t*)arg;
     int sfd = u_socket(AF_INET, SOCK_STREAM, 0);
@@ -160,7 +185,7 @@ void socket_server(void* arg){
         printf("socket_server bind ret:%d\n",ret);
         return ;
     }
-    ret = listen(sfd, 10);
+    ret = listen(sfd, 16);
     if(ret < 0){
         printf("socket_server listen ret:%d\n",ret);
         return ;
@@ -175,6 +200,7 @@ void socket_server(void* arg){
             c->fd = cfd;
             // uthread_create(*s,echo_loop,c);
             uthread_create(*s,http_loop,c);
+            // uthread_create(*s,read_loop,c);
             // http_loop(c);
         }else{
             printf("u_accept ret:%d\n",cfd);
