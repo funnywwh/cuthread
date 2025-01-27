@@ -31,6 +31,12 @@ int  uthread_create(schedule_t &schedule,Fun func,void *arg){
     // printf("id:%d\n",id);
     return id;
 }
+
+void uthread_ready(schedule_t &schedule){
+    if(schedule.running_thread){
+        schedule.runnable_queue.push_back(schedule.running_thread);
+    }
+}
 void uthread_yield(schedule_t &schedule)
 {
     if(schedule.running_thread){
@@ -147,5 +153,6 @@ void uthread_loop(schedule_t& s){
         }
         socket_check();
         uthread_check_runnable(s);
+        printf("loop checked\n");
     }
 }

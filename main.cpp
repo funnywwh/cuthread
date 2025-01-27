@@ -6,6 +6,9 @@
 
 #include <sys/epoll.h>
 #include <sys/poll.h>
+#include <signal.h>
+#include <unistd.h>
+
 
 
 void func2(void * arg)
@@ -208,27 +211,63 @@ void socket_server(void* arg){
         }
     }
 }
+schedule_t s;
+
 void schedule_test()
 {
-    schedule_t s;
-    // int id1 = uthread_create(s,func3,&s);
-    // int id2 = uthread_create(s,func2,&s);
-    // for(int i = 0;i<1000;i++){       
-    //     // uthread_sleep(*(schedule_t *)arg,500);
-    //     // printf("i:%d\n",i);
-    //     uthread_create(s,testsleep,&s);
-    // }
+    int id1 = uthread_create(s,func3,&s);
+    int id2 = uthread_create(s,func2,&s);
+    for(int i = 0;i<1000;i++){       
+        // uthread_sleep(*(schedule_t *)arg,500);
+        // printf("i:%d\n",i);
+        uthread_create(s,testsleep,&s);
+    }
     // socket_set_schedule(&s);
-    uthread_create(s,socket_server,&s);
+    // uthread_create(s,socket_server,&s);
     // socket_server(&s);
     uthread_loop(s);
     puts("main over");
  
 }
+
+
+void run1(void* arg){
+    int i = 0;
+    while(1){
+        i++;
+        printf("run1 runing i:%d\n",i);
+        sleep(1);
+    }
+}
+void run2(void* arg){
+    int i = 0;
+    while(1){
+        i++;
+        printf("run2 runing i:%d\n",i);
+        sleep(1);
+    }
+}
+
+// 信号处理函数
+void signalHandler(int sig) {
+    printf("Signal received: %d\n", sig);
+    alarm(5);
+    uthread_ready(s);
+    uthread_yield(s);
+}
+
+void timerSigTest(){
+    uthread_create(s,run1,0);
+    uthread_create(s,run2,0);
+    uthread_loop(s);
+}
 int main()
 {
 
-    schedule_test();
+    // 设置信号处理函数
+    signal(SIGALRM, signalHandler);
+    alarm(5);
+    timerSigTest();
  
     return 0;
 }

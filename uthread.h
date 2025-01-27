@@ -55,7 +55,7 @@ typedef struct schedule_t
 
 int  uthread_create(schedule_t &schedule,Fun func,void *arg);
 void uthread_yield(schedule_t &schedule);
-
+void uthread_ready(schedule_t &schedule);
 void uthread_resume(schedule_t &schedule ,uthread_t* t);
 int schedule_finished(schedule_t &schedule);
 
